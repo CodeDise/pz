@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Log in | {{ settings.APP_NAME }}{% endblock %}
+{% block body %}
+<div class="center-page">
+  <div class="card-auth stack">
+    <a class="brand" href="/"><span class="brand-mark">P</span>{{ settings.APP_NAME }}</a>
+    <h1>Log in with Telegram</h1>
+    <p class="muted">Your Telegram account is your login. No password to remember.</p>
+    {% if err %}<div class="flash err" role="alert" style="margin:0">{{ err }}</div>{% endif %}
+    {% if bot %}
+      <a class="btn btn-brass btn-block" href="https://t.me/{{ bot }}?start=login">Open @{{ bot }} in Telegram</a>
+      <p class="hint">Tap Start, then choose Open dashboard. If you're on a computer, choose Open in browser and we'll sign you in.</p>
+    {% else %}
+      <div class="warnbox">The Telegram bot is not configured yet. Set BOT_TOKEN and BOT_USERNAME on your server, or turn on DEV_LOGIN=1 to test locally.</div>
+    {% endif %}
+    {% if dev %}
+      <hr class="perf">
+      <form method="post" action="/login/dev" class="stack">
+        <h3>Developer login</h3>
+        <div class="field"><label for="tg_id">Fake Telegram ID</label><input class="input" id="tg_id" name="tg_id" type="number" value="1001" required></div>
+        <div class="field"><label for="name">Name</label><input class="input" id="name" name="name" value="Test Merchant"></div>
+        <button class="btn btn-ghost btn-block" type="submit">Log in as test merchant</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% macro icon(name) -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if name == 'home' %}<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>
+{%- elif name == 'receipt' %}<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>
+{%- elif name == 'plug' %}<path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>
+{%- elif name == 'code' %}<path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>
+{%- elif name == 'gear' %}<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>
+{%- elif name == 'external' %}<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/>
+{%- elif name == 'check' %}<path d="M5 12l5 5 9-10"/>
+{%- endif %}</svg>
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+<span class="badge {{ status }}">{{ {'created': 'Waiting', 'paid': 'Paid', 'expired': 'Expired', 'cancelled': 'Cancelled', 'failed': 'Failed', 'pending': 'In review', 'approved': 'Approved', 'rejected': 'Rejected', 'none': 'Not submitted', 'delivered': 'Delivered'}.get(status, status) }}</span>
+{%- endmacro %}

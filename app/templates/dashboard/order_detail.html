@@ -1,0 +1,71 @@
+{% extends "app_base.html" %}
+{% from "_icons.html" import status_badge %}
+{% block title %}Payment {{ o.id }} | {{ settings.APP_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="small" href="/dashboard/orders?mode={{ o.mode }}">All payments</a>
+    <h1 class="num" style="margin-top:4px">{{ fmt_units(o.amount_units, o.currency) }}</h1>
+    <div class="row" style="margin-top:6px">{{ status_badge(o.status) }}{% if o.mode == "test" %}<span class="badge test">Test</span>{% endif %}</div>
+  </div>
+  {% if o.status == "created" %}
+  <form method="post" action="/dashboard/orders/{{ o.id }}/cancel"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-danger" type="submit">Cancel link</button></form>
+  {% endif %}
+</div>
+
+{% if o.status == "created" %}
+<div class="panel row" style="align-items:flex-start;gap:24px">
+  {% if qr %}<div class="qr" aria-label="QR code of the payment link">{{ qr|safe }}</div>{% endif %}
+  <div class="grow stack">
+    <h2>Share this payment link</h2>
+    <div class="copybox"><input class="input mono" id="plink" value="{{ link }}" readonly><button class="btn btn-ghost" type="button" data-copy-from="#plink">Copy</button></div>
+    <div class="row"><a class="btn" href="{{ link }}" target="_blank" rel="noopener">Open checkout</a>
+      {% if o.mode == "test" %}
+      <form method="post" action="/pay/{{ o.id }}/simulate"><button class="btn btn-brass" type="submit">Simulate payment</button></form>
+      {% endif %}
+    </div>
+    {% if o.mode == "test" %}<p class="hint">Test mode: "Simulate payment" marks it paid so you can check your webhook and the Telegram alert.</p>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="section">
+  <h2>Details</h2>
+  <dl class="kv" style="margin-top:14px">
+    <dt>Payment ID</dt><dd class="mono">{{ o.id }}</dd>
+    <dt>Reference</dt><dd>{{ o.reference or "-" }}</dd>
+    <dt>Description</dt><dd>{{ o.description or "-" }}</dd>
+    <dt>Created</dt><dd>{{ o.created_at|ist }}</dd>
+    <dt>Expires</dt><dd>{{ o.expires_at|ist }}</dd>
+    {% if o.paid_at %}<dt>Paid</dt><dd>{{ o.paid_at|ist }}</dd>{% endif %}
+    {% if o.method %}<dt>Paid with</dt><dd>{{ o.method }}</dd>{% endif %}
+    {% if o.currency == "INR" and o.gateway_provider and o.gateway_provider != "demo" %}
+      <dt>Gateway</dt><dd>{{ PROVIDERS[o.gateway_provider].name }} <span class="muted mono small">{{ o.gateway_ref }}</span></dd>
+    {% endif %}
+    {% if o.currency == "USDT" %}
+      <dt>Network</dt><dd>{{ NETWORKS[o.crypto_network].label if o.crypto_network in NETWORKS else o.crypto_network }}</dd>
+      <dt>Wallet</dt><dd class="mono small">{{ o.crypto_address }}</dd>
+      <dt>Exact amount</dt><dd class="mono">{{ exact_usdt(o.crypto_amount_units) }} USDT</dd>
+      {% if o.crypto_tx_hash %}<dt>Transaction</dt><dd class="mono small">{{ o.crypto_tx_hash }}</dd>{% endif %}
+    {% endif %}
+    {% if o.customer_email %}<dt>Customer email</dt><dd>{{ o.customer_email }}</dd>{% endif %}
+    {% if o.customer_phone %}<dt>Customer phone</dt><dd>{{ o.customer_phone }}</dd>{% endif %}
+  </dl>
+</div>
+
+<div class="section">
+  <h2>Webhook deliveries</h2>
+  {% if deliveries %}
+  <div class="table-wrap" style="margin-top:12px"><table class="ledger">
+    <thead><tr><th>Event</th><th>Status</th><th>Attempts</th><th>Response</th><th class="right">Sent</th></tr></thead>
+    <tbody>
+    {% for d in deliveries %}
+      <tr><td class="mono small">{{ d.event }}</td><td>{{ status_badge(d.status if d.status != "pending" else "created") }}</td><td>{{ d.attempts }}</td><td class="small">{{ d.last_status_code or d.last_error or "-" }}</td><td class="right small muted">{{ d.created_at|ist }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="lead muted">No webhooks for this payment. Add your server's URL under <a href="/dashboard/developers#webhook">Developers</a> to receive them.</p>
+  {% endif %}
+</div>
+{% endblock %}

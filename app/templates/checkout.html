@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% set who = merchant.business_name or merchant.tg_name or "the merchant" %}
+{% set is_usdt = o.currency == "USDT" %}
+{% block title %}Pay {{ who }}{% endblock %}
+{% block head %}
+<meta name="robots" content="noindex">
+{% if o.gateway_provider == "cashfree" and extra.payment_session_id and o.status == "created" %}<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>{% endif %}
+{% endblock %}
+{% block body %}
+<div class="checkout-bg">
+  {% if o.mode == "test" %}<div class="testbar">Test mode. No real money moves.</div>{% endif %}
+
+  <div class="receipt">
+    <div class="to">Paying <b>{{ who }}</b></div>
+    <div class="sum num">
+      {% if is_usdt %}{{ exact_usdt(o.crypto_amount_units) }}<small>USDT</small>
+      {% else %}{{ fmt_units(o.amount_units, "INR") }}{% endif %}
+    </div>
+    {% if o.description %}<div class="muted">{{ o.description }}</div>{% endif %}
+    <hr class="perf">
+
+    {% if o.status == "paid" %}
+      <div style="text-align:center" class="stack">
+        <div class="stamp">PAID</div>
+        <p class="muted">Payment received{% if o.paid_at %} on {{ o.paid_at|ist }}{% endif %}. You can close this page.</p>
+        {% if return_url %}<a class="btn btn-brass btn-block" href="{{ return_url }}" id="ret">Return to {{ who }}</a>{% endif %}
+      </div>
+    {% elif o.status in ("expired", "cancelled", "failed") %}
+      <div style="text-align:center" class="stack">
+        <div class="stamp {{ 'bad' if o.status == 'failed' else 'off' }}">{{ o.status|upper }}</div>
+        <p class="muted">{% if o.status == "expired" %}This payment link has expired. Ask {{ who }} for a new one.{% elif o.status == "cancelled" %}{{ who }} cancelled this payment link.{% else %}The payment did not go through. Ask {{ who }} for a new link.{% endif %}</p>
+        {% if is_usdt and o.status == "expired" %}<p class="hint">Already sent the exact amount? It is normally detected within a few minutes. Contact {{ who }} with your transaction hash.</p>{% endif %}
+      </div>
+    {% else %}
+      <div class="pay-box">
+        {% if o.mode == "test" %}
+          {% if is_usdt %}
+          <div class="exact"><div class="muted small">Test address. Do not send real funds.</div><div class="mono small" style="word-break:break-all">{{ o.crypto_address }}</div></div>
+          {% endif %}
+          <form method="post" action="/pay/{{ o.id }}/simulate"><button class="btn btn-brass btn-block" type="submit">Simulate successful payment</button></form>
+        {% elif is_usdt %}
+          <div class="small"><b>Network:</b> {{ NETWORKS[o.crypto_network].label if o.crypto_network in NETWORKS else o.crypto_network }}</div>
+          {% if qr %}<div class="qr-wrap" aria-label="QR code of the wallet address">{{ qr|safe }}</div>{% endif %}
+          <div>
+            <div class="small muted" style="margin-bottom:4px">Wallet address</div>
+            <div class="addr" id="addr">{{ o.crypto_address }}</div>
+            <button class="btn btn-ghost btn-sm" type="button" style="margin-top:8px" data-copy-from="#addr">Copy address</button>
+          </div>
+          <div class="exact">
+            <div class="small" style="color:#5b4510">Send exactly this amount</div>
+            <div class="v"><span id="amt">{{ exact_usdt(o.crypto_amount_units) }}</span><button class="btn btn-sm btn-brass" type="button" data-copy-from="#amt">Copy</button></div>
+            <div class="small" style="color:#5b4510;margin-top:6px">The last digits identify your payment. Network fees are extra, so make sure {{ who }} receives the full amount.</div>
+          </div>
+        {% elif o.gateway_provider == "cashfree" %}
+          <button class="btn btn-brass btn-block" type="button" id="cf-pay">Pay now</button>
+          <p class="hint" style="text-align:center">You will complete the payment on Cashfree's secure checkout.</p>
+        {% elif o.gateway_checkout_url %}
+          <a class="btn btn-brass btn-block" href="{{ o.gateway_checkout_url }}">Pay now</a>
+          <p class="hint" style="text-align:center">You will complete the payment on {{ PROVIDERS[o.gateway_provider].name if o.gateway_provider in PROVIDERS else "the gateway" }}'s secure page.</p>
+        {% endif %}
+        <div class="timer">Time left to pay: <b id="left">--:--</b></div>
+      </div>
+    {% endif %}
+
+    <hr class="perf">
+    <dl>
+      <dt>Payment ID</dt><dd class="mono small">{{ o.id }}</dd>
+      {% if o.reference %}<dt>Reference</dt><dd>{{ o.reference }}</dd>{% endif %}
+    </dl>
+  </div>
+
+  <div class="secure">Your money goes directly to {{ who }}. {{ settings.APP_NAME }} never holds it.</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var status = {{ o.status|tojson }};
+  var id = {{ o.id|tojson }};
+
+  {% if o.status == "created" %}
+  // countdown
+  var end = {{ expires_ms }};
+  var left = document.getElementById('left');
+  function tick() {
+    var s = Math.max(0, Math.floor((end - Date.now()) / 1000));
+    if (left) left.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    if (s === 0) check();
+  }
+  setInterval(tick, 1000); tick();
+
+  // poll for the payment
+  function check() {
+    fetch('/pay/' + id + '/status', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d.status && d.status !== 'created' && d.status !== 'rate_limited') location.reload(); })
+      .catch(function () {});
+  }
+  setInterval(check, 4000);
+  {% endif %}
+
+  {% if o.status == "created" and o.gateway_provider == "cashfree" and extra.payment_session_id and o.mode == "live" %}
+  var btn = document.getElementById('cf-pay');
+  if (btn && window.Cashfree) {
+    var cf = Cashfree({ mode: {{ cashfree_mode|tojson }} });
+    btn.addEventListener('click', function () {
+      cf.checkout({ paymentSessionId: {{ extra.payment_session_id|tojson }}, redirectTarget: '_self' });
+    });
+  }
+  {% endif %}
+
+  {% if o.status == "paid" and return_url %}
+  setTimeout(function () { location.href = {{ return_url|tojson }}; }, 4000);
+  {% endif %}
+})();
+</script>
+{% endblock %}

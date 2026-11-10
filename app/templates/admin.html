@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_icons.html" import status_badge %}
+{% block title %}Admin | {{ settings.APP_NAME }}{% endblock %}
+{% block body %}
+<div class="main" style="margin:0 auto">
+  <div class="page-head">
+    <div><h1>Merchants</h1><p>Review business details and approve merchants for live payments.</p></div>
+    <div class="muted small">{{ totals.merchants }} merchants, {{ totals.orders }} orders, {{ totals.paid }} live payments</div>
+  </div>
+  {% if ok %}<div class="flash ok" role="status">{{ ok }}</div>{% endif %}
+  {% if merchants %}
+  <div class="table-wrap"><table class="ledger">
+    <thead><tr><th>Business</th><th>Contact</th><th>Telegram</th><th>Status</th><th>Joined</th><th></th></tr></thead>
+    <tbody>
+    {% for m in merchants %}
+      <tr>
+        <td><strong>{{ m.business_name or "Not provided" }}</strong><div class="muted small">{{ m.full_name or "" }}</div></td>
+        <td class="small">{{ m.email or "" }}<br>{{ m.mobile or "" }}{% if m.mobile and m.mobile_verified %} (verified){% endif %}</td>
+        <td class="small mono">{{ m.tg_id }}<br>{{ m.tg_name or "" }}</td>
+        <td>{{ status_badge(m.kyc_status) }}</td>
+        <td class="small">{{ m.created_at|ist }}</td>
+        <td class="right">
+          <form method="post" class="row" style="justify-content:flex-end">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            {% if m.kyc_status != "approved" %}<button class="btn btn-sm" formaction="/admin/merchants/{{ m.id }}/approve">Approve</button>{% endif %}
+            {% if m.kyc_status != "rejected" %}<button class="btn btn-sm btn-danger" formaction="/admin/merchants/{{ m.id }}/reject">Reject</button>{% endif %}
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <div class="empty"><strong>No merchants yet</strong>They appear here after their first login.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "app_base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Integrations | {{ settings.APP_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Integrations</h1>
+    <p>Connect your own gateway account or wallet. Customers pay you directly, we only confirm the payment.</p>
+  </div>
+</div>
+
+<div class="section" style="margin-top:0;border-top:0;padding-top:0">
+  <h2>UPI, cards and netbanking</h2>
+  <p class="lead">For each gateway: first create your API keys on the gateway's official site, then add them here.</p>
+
+  {% for p in providers %}
+  <article class="provider" id="{{ p.id }}" style="--accent: {{ p.accent }}">
+    <div class="provider-head">
+      <div><div class="nm">{{ p.name }}</div><div class="muted small">{{ p.tagline }}</div></div>
+      {% if p.connected %}<span class="badge approved">Connected</span>{% else %}<span class="badge none">Not connected</span>{% endif %}
+    </div>
+
+    <div class="official">
+      <div class="lbl">Step 1. Get your API keys from the official {{ p.name }} site</div>
+      <div class="linkrow">
+        <a class="pill key" href="{{ p.links.api_keys[1] }}" target="_blank" rel="noopener noreferrer">{{ p.links.api_keys[0] }} {{ icon("external") }}</a>
+        <a class="pill" href="{{ p.links.signup[1] }}" target="_blank" rel="noopener noreferrer">{{ p.links.signup[0] }} {{ icon("external") }}</a>
+        <a class="pill" href="{{ p.links.docs[1] }}" target="_blank" rel="noopener noreferrer">{{ p.links.docs[0] }} {{ icon("external") }}</a>
+      </div>
+    </div>
+
+    <div class="provider-body">
+      <ol class="steps">{% for s in p.steps %}<li>{{ s }}</li>{% endfor %}</ol>
+
+      {% if p.connected %}
+      <div class="connected">
+        <div class="grow"><strong>Keys saved</strong>
+          <div class="small muted">{{ p.fields[0].label }}: <span class="mono">{{ p.preview }}</span>{% if p.has_env or p.id == "razorpay" %}, {{ "sandbox" if p.env == "sandbox" else "production" }} mode{% endif %}</div></div>
+        <form method="post" action="/dashboard/integrations/gateway/{{ p.id }}/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-ghost btn-sm" type="submit">Test connection</button></form>
+        <form method="post" action="/dashboard/integrations/gateway/{{ p.id }}/delete" onsubmit="return confirm('Remove these keys? Payment links using {{ p.name }} will stop working.')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-danger btn-sm" type="submit">Remove</button></form>
+      </div>
+      {% endif %}
+
+      <details class="add"{% if not p.connected %} open{% endif %}>
+        <summary>Step 2. {{ "Replace API keys" if p.connected else "Add your API keys" }}</summary>
+        <form class="inner stack" method="post" action="/dashboard/integrations/gateway/{{ p.id }}" autocomplete="off">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="form-grid">
+            {% for f in p.fields %}
+            <div class="field">
+              <label for="{{ p.id }}-{{ f.key }}">{{ f.label }}</label>
+              <input class="input mono" id="{{ p.id }}-{{ f.key }}" name="{{ f.key }}" type="{{ 'password' if f.secret else 'text' }}" placeholder="{{ f.placeholder }}"{% if f.default %} value="{{ f.default }}"{% endif %} autocomplete="off" spellcheck="false" required>
+            </div>
+            {% endfor %}
+            {% if p.has_env %}
+            <div class="field">
+              <label for="{{ p.id }}-env">Keys are for</label>
+              <select class="select" id="{{ p.id }}-env" name="env"><option value="sandbox"{% if p.env == "sandbox" %} selected{% endif %}>Sandbox (testing)</option><option value="production"{% if p.env != "sandbox" %} selected{% endif %}>Production (live money)</option></select>
+            </div>
+            {% endif %}
+          </div>
+          <label class="check"><input type="checkbox" name="skip_check" value="1"> Save without checking with {{ p.name }}</label>
+          <div class="row"><button class="btn" type="submit">Save and verify</button><span class="hint">Keys are encrypted before they are stored. Secrets are never shown again.</span></div>
+        </form>
+      </details>
+
+      <details class="add" style="margin-top:12px">
+        <summary>Optional: instant confirmation</summary>
+        <div class="inner stack">
+          <p class="hint">{{ p.webhook_help }}</p>
+          {% if p.id != "cashfree" %}
+          <div class="copybox"><input class="input mono" id="wh-{{ p.id }}" value="{{ settings.BASE_URL }}/webhooks/{{ p.id }}/{{ merchant.public_id }}" readonly><button class="btn btn-ghost" type="button" data-copy-from="#wh-{{ p.id }}">Copy</button></div>
+          {% endif %}
+        </div>
+      </details>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+
+<div class="section" id="crypto">
+  <h2>Crypto wallets (USDT)</h2>
+  <p class="lead">Your wallet, your money. Customers send USDT straight to your address and we watch the blockchain to confirm it. We never hold your keys or funds.</p>
+
+  <div class="panel" style="margin-bottom:16px">
+    <div class="official" style="margin:-20px -20px 16px;border-top:0;border-radius:10px 10px 0 0">
+      <div class="lbl">Where to find a USDT address</div>
+      <div class="linkrow">
+        <a class="pill key" href="{{ crypto_links.binance[1] }}" target="_blank" rel="noopener noreferrer">{{ crypto_links.binance[0] }} {{ icon("external") }}</a>
+        <a class="pill" href="{{ crypto_links.trust[1] }}" target="_blank" rel="noopener noreferrer">{{ crypto_links.trust[0] }} {{ icon("external") }}</a>
+      </div>
+    </div>
+    <div class="warnbox">Each payment gets a slightly different amount, for example 10.004217 USDT, so we can tell payments apart. Accept only USDT on the network you choose. Sending another coin or network to the address can lose the funds.</div>
+  </div>
+
+  {% for code, n in networks.items() %}
+  <div class="panel">
+    <div class="row between">
+      <div><h3>{{ n.label }}</h3><div class="muted small">{{ n.hint }}</div></div>
+      {% if wallets.get(code) %}<span class="badge approved">Saved</span>{% else %}<span class="badge none">Not added</span>{% endif %}
+    </div>
+    {% if wallets.get(code) %}
+    <div class="addr" style="margin-top:12px">{{ wallets[code] }}</div>
+    {% endif %}
+    <form class="stack" style="margin-top:14px" method="post" action="/dashboard/integrations/wallet">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="network" value="{{ code }}">
+      <div class="field"><label for="w-{{ code }}">{{ "Replace address" if wallets.get(code) else "Your " ~ code ~ " address" }}</label>
+        <input class="input mono" id="w-{{ code }}" name="address" placeholder="{{ 'T...' if code == 'TRC20' else '0x...' }}" autocomplete="off" spellcheck="false" required></div>
+      <div class="row"><button class="btn" type="submit">Save address</button></div>
+    </form>
+    {% if wallets.get(code) %}
+    <form method="post" action="/dashboard/integrations/wallet/{{ code }}/delete" style="margin-top:8px"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-danger btn-sm" type="submit">Remove address</button></form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

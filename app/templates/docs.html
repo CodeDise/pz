@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}API docs | {{ settings.APP_NAME }}{% endblock %}
+{% block body %}
+<div class="site"><div class="wrap"><header class="site-nav"><a class="brand" href="/"><span class="brand-mark">P</span>{{ settings.APP_NAME }}</a><div class="links"><a href="/api/swagger">Swagger</a><a class="btn btn-brass btn-sm" href="/dashboard/developers">Get API keys</a></div></header></div></div>
+
+<div class="docs">
+  <nav aria-label="Docs sections">
+    <a href="#start">Quick start</a><a href="#auth">Authentication</a><a href="#create">Create an order</a><a href="#object">The order object</a>
+    <a href="#more">Retrieve, list, cancel</a><a href="#webhooks">Webhooks</a><a href="#test">Test mode</a><a href="#crypto">USDT payments</a><a href="#errors">Errors and limits</a>
+  </nav>
+
+  <div>
+    <section id="start">
+      <h1>{{ settings.APP_NAME }} API</h1>
+      <p>Create an order, send your customer to its <code>checkout_url</code>, and get a signed webhook when it is paid. Money goes straight to the gateway account or wallet you connected in the dashboard.</p>
+      <p>Base URL: <code>{{ base }}/api/v1</code></p>
+      <ol class="steps">
+        <li>Connect a gateway or wallet in <a href="/dashboard/integrations">Integrations</a>.</li>
+        <li>Create a test key in <a href="/dashboard/developers">Developers</a>.</li>
+        <li>Create an order with the request below and open its <code>checkout_url</code>.</li>
+        <li>Add your webhook URL and verify the signature on your server.</li>
+      </ol>
+    </section>
+
+    <section id="auth">
+      <h2>Authentication</h2>
+      <p>Send your secret key in the <code>Authorization</code> header. Test keys start with <code>sk_test_</code> and live keys with <code>sk_live_</code>. Keep them on your server, never in browser or app code.</p>
+      <div class="codeblock"><pre>Authorization: Bearer sk_test_xxxxxxxxxxxxxxxx</pre></div>
+      <p><span class="method get">GET</span><code>/api/v1/ping</code> returns your key's mode, which is a quick way to check a key works.</p>
+    </section>
+
+    <section id="create">
+      <h2>Create an order</h2>
+      <p><span class="method">POST</span><code>/api/v1/orders</code></p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code>amount</code></td><td>number</td><td>Required. In major units: 499.00 rupees or 10.5 USDT. INR allows 2 decimals, USDT 6. Minimum 1.</td></tr>
+          <tr><td><code>currency</code></td><td>string</td><td><code>INR</code> (default) uses your gateway. <code>USDT</code> uses your wallet.</td></tr>
+          <tr><td><code>description</code></td><td>string</td><td>Shown on the payment page. Up to 250 characters.</td></tr>
+          <tr><td><code>reference</code></td><td>string</td><td>Your own order or invoice number. It comes back in webhooks.</td></tr>
+          <tr><td><code>customer_email</code>, <code>customer_phone</code></td><td>string</td><td>Optional, passed to the gateway.</td></tr>
+          <tr><td><code>return_url</code></td><td>string</td><td>The customer is sent here after paying, with <code>order_id</code> and <code>status</code> added. Always confirm payment from the webhook or the API, not from this redirect.</td></tr>
+          <tr><td><code>metadata</code></td><td>object</td><td>Up to 20 text key/value pairs of your own.</td></tr>
+          <tr><td><code>expires_in_minutes</code></td><td>integer</td><td>20 to 10080. Default 30. PhonePe orders last at most 60.</td></tr>
+          <tr><td><code>gateway</code></td><td>string</td><td>INR only: <code>razorpay</code>, <code>cashfree</code> or <code>phonepe</code>. Default is the first one you connected.</td></tr>
+          <tr><td><code>network</code></td><td>string</td><td>USDT only: <code>TRC20</code> or <code>BEP20</code>. Default is the first wallet you saved.</td></tr>
+        </tbody>
+      </table>
+      <p>Send an <code>Idempotency-Key</code> header (any unique text, such as your order number) so a retried request returns the same order instead of creating a second one.</p>
+
+      <div data-tabs>
+        <div class="tabs" role="tablist" style="margin-top:14px"><button type="button" role="tab" data-tab="curl">curl</button><button type="button" role="tab" data-tab="python">Python</button><button type="button" role="tab" data-tab="node">Node.js</button><button type="button" role="tab" data-tab="php">PHP</button></div>
+        <div class="codeblock" data-panel="curl"><pre>curl {{ base }}/api/v1/orders \
+  -H "Authorization: Bearer sk_test_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: order-1001" \
+  -d '{
+    "amount": 499,
+    "currency": "INR",
+    "reference": "order-1001",
+    "description": "Pro plan",
+    "return_url": "https://yourstore.com/thanks"
+  }'</pre></div>
+        <div class="codeblock" data-panel="python"><pre>import requests
+
+r = requests.post(
+    "{{ base }}/api/v1/orders",
+    headers={
+        "Authorization": "Bearer sk_test_YOUR_KEY",
+        "Idempotency-Key": "order-1001",
+    },
+    json={
+        "amount": 499,
+        "currency": "INR",
+        "reference": "order-1001",
+        "description": "Pro plan",
+        "return_url": "https://yourstore.com/thanks",
+    },
+    timeout=20,
+)
+r.raise_for_status()
+order = r.json()
+print(order["checkout_url"])   # send the customer here</pre></div>
+        <div class="codeblock" data-panel="node"><pre>const res = await fetch("{{ base }}/api/v1/orders", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer sk_test_YOUR_KEY",
+    "Content-Type": "application/json",
+    "Idempotency-Key": "order-1001",
+  },
+  body: JSON.stringify({
+    amount: 499,
+    currency: "INR",
+    reference: "order-1001",
+    description: "Pro plan",
+    return_url: "https://yourstore.com/thanks",
+  }),
+});
+if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+const order = await res.json();
+console.log(order.checkout_url); // send the customer here</pre></div>
+        <div class="codeblock" data-panel="php"><pre>&lt;?php
+$ch = curl_init("{{ base }}/api/v1/orders");
+curl_setopt_array($ch, [
+    CURLOPT_POST => true,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => [
+        "Authorization: Bearer sk_test_YOUR_KEY",
+        "Content-Type: application/json",
+        "Idempotency-Key: order-1001",
+    ],
+    CURLOPT_POSTFIELDS => json_encode([
+        "amount" => 499,
+        "currency" => "INR",
+        "reference" => "order-1001",
+        "description" => "Pro plan",
+        "return_url" => "https://yourstore.com/thanks",
+    ]),
+]);
+$order = json_decode(curl_exec($ch), true);
+header("Location: " . $order["checkout_url"]);</pre></div>
+      </div>
+    </section>
+
+    <section id="object">
+      <h2>The order object</h2>
+      <div class="codeblock"><pre>{
+  "id": "ord_8f3a1c9d2b7e4a10",
+  "object": "order",
+  "mode": "test",
+  "status": "created",
+  "amount": "499.00",
+  "currency": "INR",
+  "description": "Pro plan",
+  "reference": "order-1001",
+  "metadata": {},
+  "checkout_url": "{{ base }}/pay/ord_8f3a1c9d2b7e4a10",
+  "method": null,
+  "created_at": "2026-01-15T10:30:00Z",
+  "expires_at": "2026-01-15T11:00:00Z",
+  "paid_at": null,
+  "gateway": null
+}</pre></div>
+      <p><code>status</code> is one of <code>created</code> (waiting for payment), <code>paid</code>, <code>expired</code>, <code>cancelled</code> or <code>failed</code>. Ship the goods only when it is <code>paid</code>.</p>
+    </section>
+
+    <section id="more">
+      <h2>Retrieve, list, cancel</h2>
+      <p><span class="method get">GET</span><code>/api/v1/orders/{id}</code> returns one order. We re-check it with the gateway first, so it is always current.</p>
+      <p><span class="method get">GET</span><code>/api/v1/orders?limit=20&amp;status=paid&amp;starting_after=ord_...</code> lists newest first. Returns <code>data</code> and <code>has_more</code>.</p>
+      <p><span class="method">POST</span><code>/api/v1/orders/{id}/cancel</code> cancels an order that is still unpaid.</p>
+      <p>Keys only see orders of their own mode: test keys see test orders, live keys see live orders.</p>
+    </section>
+
+    <section id="webhooks">
+      <h2>Webhooks</h2>
+      <p>Set your URL in <a href="/dashboard/developers#webhook">Developers</a>. We send a <code>POST</code> with a JSON body for these events: <code>order.paid</code>, <code>order.expired</code>, <code>order.cancelled</code> and <code>order.failed</code>. Answer with any 2xx status. Otherwise we retry up to 8 times over about a day.</p>
+      <div class="codeblock"><pre>{
+  "id": "evt_5c1e7a90b2d4f318",
+  "type": "order.paid",
+  "livemode": false,
+  "created": "2026-01-15T10:34:12Z",
+  "data": { "order": { "id": "ord_8f3a1c9d2b7e4a10", "status": "paid", "amount": "499.00", "currency": "INR" } }
+}</pre></div>
+      <h3>Verify the signature</h3>
+      <p>Each request has <code>X-PayGate-Signature: t=1736937252,v1=&lt;hex&gt;</code>. The value is an HMAC-SHA256 of <code>{timestamp}.{raw body}</code> using your signing secret from the dashboard. Compute it from the raw body, compare in constant time, and reject old timestamps. Handle each <code>id</code> only once, since retries can repeat an event.</p>
+      <div data-tabs>
+        <div class="tabs" role="tablist"><button type="button" role="tab" data-tab="python">Python</button><button type="button" role="tab" data-tab="node">Node.js</button><button type="button" role="tab" data-tab="php">PHP</button></div>
+        <div class="codeblock" data-panel="python"><pre>import hmac, hashlib, time
+
+def verify(raw_body: bytes, header: str, secret: str, tolerance: int = 300) -> bool:
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    ts, sig = parts["t"], parts["v1"]
+    if abs(time.time() - int(ts)) &gt; tolerance:
+        return False
+    expected = hmac.new(secret.encode(), ts.encode() + b"." + raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, sig)</pre></div>
+        <div class="codeblock" data-panel="node"><pre>const crypto = require("crypto");
+
+// Use express.raw({ type: "application/json" }) so req.body is the raw Buffer
+function verify(rawBody, header, secret, tolerance = 300) {
+  const p = Object.fromEntries(header.split(",").map((s) =&gt; s.split("=")));
+  if (Math.abs(Date.now() / 1000 - Number(p.t)) &gt; tolerance) return false;
+  const expected = crypto.createHmac("sha256", secret)
+    .update(p.t + "." + rawBody.toString("utf8")).digest("hex");
+  return expected.length === p.v1.length &amp;&amp;
+    crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(p.v1));
+}</pre></div>
+        <div class="codeblock" data-panel="php"><pre>&lt;?php
+$raw    = file_get_contents("php://input");
+$header = $_SERVER["HTTP_X_PAYGATE_SIGNATURE"] ?? "";
+parse_str(str_replace(",", "&amp;", $header), $p);
+$expected = hash_hmac("sha256", ($p["t"] ?? "") . "." . $raw, $secret);
+$valid = isset($p["v1"]) &amp;&amp; hash_equals($expected, $p["v1"])
+      &amp;&amp; abs(time() - (int)$p["t"]) &lt;= 300;
+if (!$valid) { http_response_code(400); exit; }
+// ...handle the event, then:
+http_response_code(200);</pre></div>
+      </div>
+    </section>
+
+    <section id="test">
+      <h2>Test mode</h2>
+      <p>Orders made with a <code>sk_test_</code> key never touch a gateway or the blockchain. Open the <code>checkout_url</code> and press <b>Simulate successful payment</b>. You get the same webhook and Telegram message as a real payment, with <code>livemode: false</code>.</p>
+      <p>To try a real gateway flow without real money, add your gateway's sandbox keys in Integrations and use a <code>sk_live_</code> key. Live keys need an approved account.</p>
+    </section>
+
+    <section id="crypto">
+      <h2>USDT payments</h2>
+      <p>A USDT order shows your wallet address and an exact amount. To tell payments apart we add a tiny unique amount (under 0.01 USDT) to each order, for example 10.004217. The customer must send exactly that amount on the chosen network. <code>crypto.amount</code> in the order object is the exact figure.</p>
+      <p>We confirm after the network's confirmations: TRON waits for a confirmed block, BNB Smart Chain waits 12 blocks. Payments that arrive within 30 minutes after expiry are still matched.</p>
+    </section>
+
+    <section id="errors">
+      <h2>Errors and limits</h2>
+      <p>Errors come as <code>{"error": {"code": "...", "message": "..."}}</code> with a matching HTTP status.</p>
+      <table>
+        <thead><tr><th>Status</th><th>Code</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>401</td><td><code>unauthorized</code></td><td>Missing, wrong or revoked key.</td></tr>
+          <tr><td>400</td><td><code>no_gateway</code>, <code>no_wallet</code></td><td>Connect a gateway or wallet first.</td></tr>
+          <tr><td>400</td><td><code>invalid_amount</code> and similar</td><td>Fix the field named in the message.</td></tr>
+          <tr><td>403</td><td><code>kyc_required</code></td><td>Live payments need an approved account.</td></tr>
+          <tr><td>404</td><td><code>not_found</code></td><td>No such order for this key.</td></tr>
+          <tr><td>409</td><td><code>not_cancellable</code></td><td>Only unpaid orders can be cancelled.</td></tr>
+          <tr><td>429</td><td><code>rate_limited</code></td><td>Limit is 120 requests per minute per key.</td></tr>
+          <tr><td>502</td><td><code>gateway_error</code></td><td>Your gateway rejected the request. The message says why.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</div>
+{% endblock %}

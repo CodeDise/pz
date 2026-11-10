@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ settings.APP_NAME }}: take payments straight into your own account{% endblock %}
+{% block body %}
+<div class="site">
+  <div class="wrap">
+    <header class="site-nav">
+      <a class="brand" href="/"><span class="brand-mark">P</span>{{ settings.APP_NAME }}</a>
+      <div class="links"><a href="/docs">API docs</a><a class="btn btn-brass btn-sm" href="/login">Log in</a></div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <h1>Get paid by UPI, card or USDT, straight into your own account.</h1>
+        <p class="lead">Connect the Razorpay, Cashfree or PhonePe account you already have, or a crypto wallet. You get a payment page, an API and a Telegram alert for every payment. We never hold your money.</p>
+        <div class="row">
+          {% if bot %}<a class="btn btn-brass" href="https://t.me/{{ bot }}?start=home">Open in Telegram</a>{% else %}<a class="btn btn-brass" href="/login">Get started</a>{% endif %}
+          <a class="btn btn-ghost" style="color:#fff;border-color:#3b6b62" href="/docs">Read the API docs</a>
+        </div>
+      </div>
+      <div class="receipt" aria-hidden="true">
+        <div class="to">Paying <b>Chai &amp; Co</b></div>
+        <div class="sum num">24.003817<small>USDT</small></div>
+        <div class="muted">Annual plan</div>
+        <hr class="perf">
+        <div style="text-align:center"><div class="stamp">PAID</div></div>
+        <hr class="perf">
+        <dl><dt>Payment ID</dt><dd class="mono small">ord_8f3a1c9d2b7e4a10</dd><dt>Network</dt><dd>TRON (TRC20)</dd></dl>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="light">
+  <div class="wrap">
+    <h2 style="font-size:26px;letter-spacing:-0.02em">What you get</h2>
+    <div class="cols">
+      <div><h3>Your accounts, your settlement</h3><p>Add your own gateway keys or wallet address. Customers pay you directly, so there is no pooled balance and no withdrawal wait.</p></div>
+      <div><h3>One API for every method</h3><p>Create an order with one request and send the customer to a hosted payment page that works on phones and inside Telegram.</p></div>
+      <div><h3>Confirmed automatically</h3><p>We check your gateway or the blockchain, then send you a signed webhook and a Telegram message the moment money arrives.</p></div>
+      <div><h3>Practice first</h3><p>Test keys and a Simulate payment button let you build and check your whole integration before any real rupee moves.</p></div>
+    </div>
+
+    <h2 style="font-size:26px;letter-spacing:-0.02em;margin-top:56px">Works with</h2>
+    <div class="cols">
+      {% for pid, p in providers.items() %}
+      <div><h3>{{ p.name }}</h3><p>{{ p.tagline }}.</p><p><a href="{{ p.links.signup[1] }}" target="_blank" rel="noopener noreferrer">{{ p.links.signup[0] }}</a></p></div>
+      {% endfor %}
+      <div><h3>USDT wallets</h3><p>TRON (TRC20) and BNB Smart Chain (BEP20). Use any wallet or exchange deposit address you control.</p></div>
+    </div>
+  </div>
+</div>
+<div class="site"><div class="wrap"><div class="foot">{{ settings.APP_NAME }}. Payments are processed by your own gateway accounts and wallets.</div></div></div>
+{% endblock %}

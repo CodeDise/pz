@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: paygate
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: paygate-db
+          property: connectionString
+      - key: APP_NAME
+        value: PayGate
+      - key: BOT_TOKEN
+        sync: false
+      - key: BOT_USERNAME
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: TRONGRID_API_KEY
+        sync: false
+
+databases:
+  - name: paygate-db
+    plan: free

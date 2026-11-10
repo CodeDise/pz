@@ -1,0 +1,89 @@
+{% extends "app_base.html" %}
+{% from "_icons.html" import status_badge %}
+{% block title %}Developers | {{ settings.APP_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Developers</h1><p>API keys and webhooks for your website or app.</p></div>
+  <a class="btn btn-ghost" href="/docs" target="_blank" rel="noopener">Read the API docs</a>
+</div>
+
+{% if new_key %}
+<div class="panel" style="border-color:var(--brass);margin-bottom:24px">
+  <h2>Your new API key</h2>
+  <p class="muted" style="margin:4px 0 12px">Copy it now. For your security it is shown only once.</p>
+  <div class="copybox"><input class="input mono" id="newkey" value="{{ new_key }}" readonly><button class="btn btn-brass" type="button" data-copy-from="#newkey">Copy</button></div>
+</div>
+{% endif %}
+
+<div class="section" style="margin-top:0;border-top:0;padding-top:0">
+  <h2>API keys</h2>
+  <p class="lead">Test keys (sk_test_) create practice payments. Live keys (sk_live_) move real money through your connected accounts. Keep keys on your server only.</p>
+  {% if keys %}
+  <div class="table-wrap"><table class="ledger">
+    <thead><tr><th>Key</th><th>Mode</th><th>Last used</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+    {% for k in keys %}
+      <tr>
+        <td><span class="mono">sk_{{ k.mode }}_••••{{ k.last4 }}</span>{% if k.label %}<div class="muted small">{{ k.label }}</div>{% endif %}</td>
+        <td>{% if k.revoked %}<span class="badge none">Revoked</span>{% elif k.mode == "test" %}<span class="badge test">Test</span>{% else %}<span class="badge approved">Live</span>{% endif %}</td>
+        <td class="small muted">{{ k.last_used_at|ist if k.last_used_at else "Never" }}</td>
+        <td class="small muted">{{ k.created_at|ist }}</td>
+        <td class="right">{% if not k.revoked %}
+          <form method="post" action="/dashboard/developers/keys/{{ k.id }}/revoke" onsubmit="return confirm('Revoke this key? Anything using it stops working immediately.')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-danger btn-sm" type="submit">Revoke</button></form>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+  <form class="panel" style="margin-top:16px" method="post" action="/dashboard/developers/keys/new">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <h3 style="margin-bottom:12px">Create an API key</h3>
+    <div class="form-grid">
+      <div class="field"><label for="k-mode">Type</label><select class="select" id="k-mode" name="mode"><option value="test">Test</option><option value="live">Live</option></select></div>
+      <div class="field"><label for="k-label">Name (optional)</label><input class="input" id="k-label" name="label" maxlength="60" placeholder="My website"></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn" type="submit">Create key</button></div>
+  </form>
+</div>
+
+<div class="section" id="webhook">
+  <h2>Webhook</h2>
+  <p class="lead">We call this URL the moment a payment is paid, expires or fails. Every call is signed so you can trust it. Failed calls are retried for about a day.</p>
+  <form class="panel stack" method="post" action="/dashboard/developers/webhook">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="field"><label for="wh-url">Your server URL</label><input class="input mono" id="wh-url" name="url" type="url" value="{{ merchant.webhook_url or '' }}" placeholder="https://yourstore.com/paygate-webhook"></div>
+    <div class="row"><button class="btn" type="submit">Save URL</button></div>
+  </form>
+  <div class="panel stack" style="margin-top:16px">
+    <h3>Signing secret</h3>
+    <details class="add"><summary>Show secret</summary>
+      <div class="inner"><div class="copybox"><input class="input mono" id="whsec" value="{{ webhook_secret }}" readonly><button class="btn btn-ghost" type="button" data-copy-from="#whsec">Copy</button></div></div>
+    </details>
+    <div class="row">
+      <form method="post" action="/dashboard/developers/webhook/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-ghost" type="submit"{% if not merchant.webhook_url %} disabled{% endif %}>Send test event</button></form>
+      <form method="post" action="/dashboard/developers/webhook/rotate" onsubmit="return confirm('Create a new secret? Your server must be updated with it.')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-ghost" type="submit">Create new secret</button></form>
+    </div>
+  </div>
+
+  {% if deliveries %}
+  <h3 style="margin:22px 0 10px">Recent deliveries</h3>
+  <div class="table-wrap"><table class="ledger">
+    <thead><tr><th>Event</th><th>Status</th><th>Attempts</th><th>Response</th><th class="right">When</th></tr></thead>
+    <tbody>
+    {% for d in deliveries %}
+      <tr><td class="mono small">{{ d.event }}</td><td>{{ status_badge(d.status if d.status != "pending" else "created") }}</td><td>{{ d.attempts }}</td><td class="small">{{ d.last_status_code or d.last_error or "-" }}</td><td class="right small muted">{{ d.created_at|ist }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+</div>
+
+<div class="section">
+  <h2>Try it</h2>
+  <p class="lead">Replace the key with one of yours.</p>
+  <div class="codeblock"><button class="btn btn-ghost btn-sm copy" type="button" data-copy-from="#curl-sample" style="color:#fff;border-color:#3b6b62">Copy</button><pre id="curl-sample">curl {{ settings.BASE_URL }}/api/v1/orders \
+  -H "Authorization: Bearer sk_test_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 499, "currency": "INR", "reference": "INV-1001"}'</pre></div>
+</div>
+{% endblock %}

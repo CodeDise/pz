@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} | {{ settings.APP_NAME }}{% endblock %}
+{% block body %}
+<div class="center-page">
+  <div class="card-auth stack">
+    <a class="brand" href="/"><span class="brand-mark">P</span>{{ settings.APP_NAME }}</a>
+    <h1>{{ title }}</h1>
+    <p class="muted">{{ text }}</p>
+    <a class="btn btn-ghost" href="/dashboard">Go to dashboard</a>
+  </div>
+</div>
+{% endblock %}

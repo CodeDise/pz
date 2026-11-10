@@ -1,0 +1,74 @@
+{% extends "app_base.html" %}
+{% from "_icons.html" import icon, status_badge %}
+{% block title %}Overview | {{ settings.APP_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Overview</h1>
+    <p>{% if mode == "test" %}Test payments only. No real money is involved.{% else %}Money received through your own gateways and wallets.{% endif %}</p>
+  </div>
+  <div class="seg" role="group" aria-label="Mode">
+    <a href="/dashboard?mode=live"{% if mode == "live" %} aria-current="true"{% endif %}>Live</a>
+    <a href="/dashboard?mode=test"{% if mode == "test" %} aria-current="true"{% endif %}>Test</a>
+  </div>
+</div>
+
+{% if onboarding %}
+<div class="panel" style="margin-bottom:24px">
+  <h2>Get ready to accept payments</h2>
+  <ul class="todo" style="margin-top:8px">
+    {% for c in checklist %}
+    <li class="{{ 'done' if c.done else '' }}">
+      <span class="tick">{% if c.done %}{{ icon("check") }}{% endif %}</span>
+      <div class="grow"><div class="t">{{ c.title }}</div><div class="muted small">{{ c.text }}</div></div>
+      {% if not c.done %}<a class="btn btn-ghost btn-sm" href="{{ c.href }}">{{ c.cta }}</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="totals">
+  {% for c in charts %}
+  <div class="panel total">
+    <div class="muted small">Received today in {{ c.currency }}</div>
+    <div class="big">{{ fmt_units(c.today, c.currency) }}</div>
+    <div class="sub">Last 7 days: {{ fmt_units(c.week, c.currency) }}. Last 30 days: {{ fmt_units(month[c.currency], c.currency) }}.</div>
+    <div class="bars" role="img" aria-label="{{ c.currency }} received per day, last 7 days">
+      {% for d in c.days %}
+      <div class="bar"><i class="{{ 'zero' if not d.units else '' }}" style="height:{{ d.pct }}%" title="{{ fmt_units(d.units, c.currency) }}"></i><span>{{ d.label }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="counts">
+  <div><b>{{ counts.get("paid", 0) }}</b>Paid</div>
+  <div><b>{{ counts.get("created", 0) }}</b>Waiting for payment</div>
+  <div><b>{{ counts.get("expired", 0) + counts.get("cancelled", 0) + counts.get("failed", 0) }}</b>Expired or cancelled</div>
+</div>
+
+<div class="section">
+  <div class="row between"><h2>Recent payments</h2><a href="/dashboard/orders?mode={{ mode }}">See all</a></div>
+  <div style="margin-top:12px">
+  {% if recent %}
+    <div class="table-wrap"><table class="ledger">
+      <thead><tr><th>Amount</th><th>Status</th><th>For</th><th class="right">Created</th></tr></thead>
+      <tbody>
+      {% for o in recent %}
+        <tr>
+          <td class="amount"><a class="row-link" href="/dashboard/orders/{{ o.id }}">{{ fmt_units(o.amount_units, o.currency) }}</a></td>
+          <td>{{ status_badge(o.status) }}</td>
+          <td>{{ o.reference or o.description or "-" }}</td>
+          <td class="right small muted">{{ o.created_at|ist }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <div class="empty"><strong>No {{ mode }} payments yet</strong>Create a payment link to see the full flow.<div style="margin-top:14px"><a class="btn" href="/dashboard/orders">Create payment link</a></div></div>
+  {% endif %}
+  </div>
+</div>
+{% endblock %}
